@@ -1,0 +1,17 @@
+#ifndef TEST_UTILS_H
+#define TEST_UTILS_H
+
+
+#include "../../core_lib/include/headers/initializations.h" //for now unless we make a specific setters inclusion macro which would help
+
+void setMaxAndMin(type min, type max);
+void setParams(type k, type z);
+static const type FLT_EQ_EPS = (type)1e-5;
+#define FLT_EQ(flt1, flt2) tolerantFloatEquality((flt1), (flt2))
+#define FLT_NEQ(flt1, flt2) !FLT_EQ(flt1, flt2)
+
+BOOL32 tolerantFloatEquality(type flt1, type flt2);
+BOOL32 checkBoundSatisfaction(type in, type min, type max); //check if input satisfies the range that is given
+
+
+#endif //header
