@@ -18,6 +18,12 @@
 
 ## Generally it can be applied in any domain where non-linear transformation of something to an unbounded or bounded range in many different ways, or vice-versa (bounded to unbounded) by using the inverse tranformations.
 
+### pending:
+ - #### some minute optimizations are still to be implemented
+ - #### extensive testing on windows
+ - #### build and deployment automation scripts for windows
+ - #### python package wheels for windows
+
 # Desmos Sheets:
 ### The following sheets are helpful for visualization and seeing the effect of configuring the parameters of the formulas
 ## [Demonstration](https://www.desmos.com/calculator/cf0389db8e)
