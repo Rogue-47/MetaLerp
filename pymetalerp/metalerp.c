@@ -533,7 +533,6 @@ PyMODINIT_FUNC PyInit_metalerp(void)
 
     PyObject* module = PyModule_Create(&metalerpModule);
 
-    //TODO: more global variables needed, make ones for the arm descriptors of the hybrid variant
     int moduleGlobalVariables[PYMETALERP_GLOBAL_COUNT] = {-1};
 
 
