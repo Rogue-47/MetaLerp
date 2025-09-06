@@ -26,30 +26,35 @@ multiple makefile targets will be offered for big configurations of the lib (spe
 //
 #ifndef MAXIMUM
     #ifdef MLMAX32
+    typedef float METALERP_NATIVE_COMPUTATION_TYPE;
     #define MAXIMUM FLT_MAX
-    #define type_abs fabsf              
-    #define type_fma fmaf
-    #define type_min fminf
-    #define type_max fmaxf
+    #define type_abs(a) fabsf(cast(type, (a)))              
+    #define type_fma(a, b, c) fmaf(cast(type, (a)), cast(type, (b)), cast(type, (c)))
+    #define type_min(a, b) fminf(cast(type, (a)), cast(type, (b)))
+    #define type_max(a, b) fmaxf(cast(type, (a)), cast(type, (b)))
     #elif defined(MLMAX64) 
+    typedef double METALERP_NATIVE_COMPUTATION_TYPE;
     #define MAXIMUM DBL_MAX
-    #define type_abs fabs
-    #define type_fma fma
-    #define type_min fmin
-    #define type_max fmax
+    #define type_abs(a) fabs(cast(type, (a)))
+    #define type_fma(a, b, c) fma(cast(type, (a)), cast(type, (b)), cast(type, (c)))
+    #define type_min(a, b) fmin(cast(type, (a)), cast(type, (b)))
+    #define type_max(a, b) fmax(cast(type, (a)), cast(type, (b)))
     #elif defined(MLMAX16)
+    typedef _Float16 METALERP_NATIVE_COMPUTATION_TYPE;
     #define MAXIMUM __FLT16_MAX__
     #define type_abs(x) fabsf(((float)(x)))              
     #define type_fma(x, y, z) fmaf(((float)(x)), ((float)(y)), ((float)(z))) 
     #define type_min(x, y) fminf(((float)(x)), ((float)(y)))
     #define type_max(x, y) fmaxf(((float)(x)), ((float)(y)))
     #elif defined(MLMAX_I32)
+    typedef int32_t METALERP_NATIVE_COMPUTATION_TYPE;
     #define MAXIMUM INT_MAX
     #define type_abs abs
     #define type_fma(x, y, z) (((x) * (y)) + (z))
     #define type_min(a, b) ((a) < (b)) ? a : b
     #define type_max(a, b) ((a) > (b)) ? a : b
     #elif defined(MLMAX_I64)
+    typedef int64_t METALERP_NATIVE_COMPUTATION_TYPE;
     #define MAXIMUM LLONG_MAX
     #define type_abs llabs
     #define type_fma(x, y, z) (((x) * (y)) + (z))
@@ -63,7 +68,7 @@ multiple makefile targets will be offered for big configurations of the lib (spe
 #define type METALERP_NATIVE_COMPUTATION_TYPE
 #endif
 
-#ifndef NM
+#ifndef NM /*metalerp Naming Mode (prefix with D_ or not for device-mirrors)*/
     
     #ifndef __CUDACC__
     #define NM(param) param
@@ -84,7 +89,7 @@ multiple makefile targets will be offered for big configurations of the lib (spe
 #include <math.h>
 #include <stdlib.h>
 
-typedef unsigned char BOOL8;
+typedef int8_t BOOL8;
 typedef int32_t BOOL32;
 
     #if !defined(TYPE_INT32) && !defined(TYPE_INT64)
@@ -193,121 +198,7 @@ typedef int32_t BOOL32;
 
     extern BOOL32 METALERP_CUDAMODE; //runtime flag to switch between device and host functionality
     extern BOOL8 METALERP_CUDA_AVAILABLE;
-    //setters are referenced from the CUDA object file
-    #if __CUDACC__
-
-        #define METALERP_REDEF_LATER
-
-        #if !defined(METALERP_RELEASE) && !defined(METALERP_FAST)
-        #include<assert.h>
-            #define CUDA_CALL(func_call)  \
-                do  \
-                {   \
-                    cudaError_t errcode = (func_call);  \
-                    if(errcode != cudaSuccess)    \
-                    {   \
-                        fprintf(stderr, "Cuda Function Call \"%s\" failed to execute with CUDA error: \"%s\"\n", #func_call, cudaGetErrorString(errcode)); \
-                        assert(errcode == cudaSuccess); /*will always fail, but it's for extra verbosity, pin-pointing where the function that failed was and terminating runtime*/ \
-                    }   \
-                } while (0);
-            
-        #elif !defined(METALERP_FAST)
-            #define CUDA_CALL(func_call)  \
-                do  \
-                {   \
-                    cudaError_t errcode = (func_call);  \
-                    if(errcode != cudaSuccess)    \
-                    {   \
-                        fprintf(stderr, "Cuda Function Call \"%s\" failed to execute with error: \"%s\"\n", #func_call, cudaGetErrorString(errcode)); \
-                    }   \
-                } while (0);
-        #else   
-            #define CUDA_CALL(func_call) func_call;
-        #endif
-        
-        #include <cuda.h>
-        #include <cuda_runtime.h>
-
-        #define METALERP_BLOCK_SIZE cast(size_t, 256)
-        
-        //TODO: perhaps fix denom as 256 METALERP_BLOCK_SIZE later and observe speed gains
-        STATIC_FORCE_INLINE
-        size_t metalerp_ceildiv(size_t numer, size_t denom) //strictly internal to the cuda object file
-        {
-            return ((numer - 1) / denom) + 1;
-        }
-        
-        #define computeGridSize(numElements) metalerp_ceildiv(cast(size_t, numElements), METALERP_BLOCK_SIZE)
-
-        /*wrapper around the interface-level setters for linkage issues resolution that come from calling inlined functions from an object file*/
-        #define METALERP_DEF_SHIM(function, type1, arg1) STATIC_FORCE_INLINE void shim_##function(type1 arg1); void function(type1 arg1) {shim_##function(arg1);} STATIC_FORCE_INLINE void shim_##function
-        #define METALERP_DEF_SHIM_2ARG(function, type1, arg1, type2, arg2) STATIC_FORCE_INLINE void shim_##function(type1 arg1, type2 arg2); void function(type1 arg1, type2 arg2) {shim_##function(arg1, arg2);} STATIC_FORCE_INLINE void shim_##function
-
-        #define METALERP_EXTERNAL_KERNEL __global__ void //for CUDA kernels, they will be defined in kDispatcher.h
-        //host dispatchers of the cuda kernel launches will be defined only when this macro is also defined, since they necessitate the existence of a kernel to launch it in the first place
-
-        #define NM(param) D_##param //naming mode, for function signatures, or global variables.
-
-        #define METALERP_INTERNAL_DEVFUNC __device__ STATIC_FORCE_INLINE
-
-        #define METALERP_INTERNAL_KERNEL(funcName) \
-            METALERP_EXTERNAL_KERNEL \
-            K_##funcName(type* __restrict__ inArray, size_t len)   \
-                {   \
-                    size_t idx = blockIdx.x * blockDim.x + threadIdx.x; \
-                    if(idx < len) \
-                    {   \
-                        inArray[idx] = NM(funcName)(inArray[idx]); \
-                    } \
-                }   \
-            void deviceDispatch_##funcName(const type* __restrict__ in, type* __restrict__ out, size_t len)   \
-                {   \
-                    size_t numBytes = len * sizeof(type);   \
-                    \
-                    type *D_in = NULL;   \
-                    \
-                    CUDA_CALL(cudaMalloc((void**)&D_in, numBytes))  \
-                    \
-                    CUDA_CALL(cudaMemcpy(D_in, in, numBytes, cudaMemcpyHostToDevice))   \
-                    \
-                    K_##funcName<<<computeGridSize(len), METALERP_BLOCK_SIZE>>>(D_in, len);  \
-                    \
-                    CUDA_CALL(cudaMemcpy(out, D_in, numBytes, cudaMemcpyDeviceToHost)) \
-                    \
-                    CUDA_CALL(cudaFree(D_in))   \
-                    \
-                }   \
-            __device__ STATIC_FORCE_INLINE type NM(funcName) 
-
-        
-        #define COPY_PARAM2DEVICE(symbolName, param) if(METALERP_CUDAMODE) {CUDA_CALL(cudaMemcpyToSymbol(symbolName, &(param), sizeof(type), sizeof(type)*D_##param##_idx, cudaMemcpyHostToDevice))} //extra copy to device equivalent at the end of each setter
-        #define COPY_PARAM2DEVICE_2(symbolName, param, param2) if(METALERP_CUDAMODE) {CUDA_CALL(cudaMemcpyToSymbol(symbolName, &(param), sizeof(type), sizeof(type)*D_##param##_idx, cudaMemcpyHostToDevice)) CUDA_CALL(cudaMemcpyToSymbol(symbolName, &(param2), sizeof(type), sizeof(type)*D_##param2##_idx, cudaMemcpyHostToDevice))} //extra copy to device equivalent at the end of each setter
-        #define COPY_PARAM2DEVICE_ENUM(enumParam_L, enumParam_R)    \
-        if(METALERP_CUDAMODE) \
-        {\
-            CUDA_CALL(cudaMemcpyToSymbol(D_##enumParam_L, &(enumParam_L), sizeof(enum Functions), 0, cudaMemcpyHostToDevice)) \
-            CUDA_CALL(cudaMemcpyToSymbol(D_##enumParam_R, &(enumParam_R), sizeof(enum Functions), 0, cudaMemcpyHostToDevice))  \
-        }
-
-    //linking the two layers in the final compilation
-    #elif defined METALERP_CUDA_LAYER_READY /*last*/
-
-        #define NM(param) param
-        
-        #define METALERP_INTERNAL_DEVFUNC STATIC_FORCE_INLINE
-
-        #define METALERP_INTERNAL_KERNEL(funcName) void deviceDispatch_##funcName(const type* __restrict__ in, type* __restrict out, size_t len); STATIC_FORCE_INLINE type NM(funcName) 
-
-    #else
-        #define METALERP_INTERNAL_DEVFUNC STATIC_FORCE_INLINE
-
-        #define NM(param) param
-        
-        #define METALERP_INTERNAL_KERNEL(funcName) STATIC_FORCE_INLINE type NM(funcName) 
-
-        
-
-    #endif
+    #include "metalerpCudaDefs.h"
 
     /*****************/
 
@@ -427,7 +318,7 @@ typedef int32_t BOOL32;
     type NM(nonBranchingSign)(type x) //less branching (only the sign bias check) but heavily arithmetic
     {
         #ifdef METALERP_FP_MODE
-        metalerp_intfloat mix = {.f = (float)x};
+        metalerp_intfloat mix = {.f = (type)x};
         BITWISE_TYPE sgnex = ((mix.i)>>cast(BITWISE_TYPE, METALERP_SGN_RSHIFT_AMOUNT)) & cast(BITWISE_TYPE, 1);
         #else
         BITWISE_TYPE sgnex = (x >> cast(BITWISE_TYPE, METALERP_SGN_RSHIFT_AMOUNT)) & cast(BITWISE_TYPE, 1);
@@ -524,7 +415,6 @@ typedef int32_t BOOL32;
                 #define SET_MIN(val, max) ((val) < (max)) ? (val) : (max) SUB_EPSILON2(max) 
             #endif
         #endif
-    volatile static const char* METALERP_STR = "float was chosen";
     extern BOOL32 metalerpEvenInversionCheckOnce;
     extern BOOL32 metalerpOddInversionCheckOnce;
     //INVERSION QUIRKS - the lib's evenly symmetric variants aren't perfectly invertible (always yield |x|)
@@ -543,7 +433,7 @@ typedef int32_t BOOL32;
             if(!metalerpEvenInversionCheckOnce) { metalerpEvenInversionCheckOnce=1; printf("\n\033[4;31m*************************\n--METALERP WARNING--\n*************************\n\033[0m\nit seems you have called the evenly symmetric function [%s]'s inverse function: [inv_%s] in dispatcher: [%s]\nPlease be aware that the even variants aren't mathematically perfectly invertible, similar to x^2 function\n", #fwd_func, #fwd_func, #outer_func);}
 
             #define METALERP_CHECK_ODD_INVERSION(outer_func, fwd_func, min) \
-            if(((min) <= 0) && !metalerpOddInversionCheckOnce) { metalerpOddInversionCheckOnce=1; printf("\n\033[4;31m*************************\n--METALERP WARNING--\n*************************\n\033[0m\nit seems you have called the oddly symmetric function [%s]'s inverse function: [inv_%s] in dispatcher: [%s] while its minimum was less than zero (%.20f)\nPlease be aware that the odd inversion variants of this lib can produce ambiguous results on some inputs when min < 0 due to domain restriction and arm-biasing around x=0 to ensure (one-one) inverse functionality\n", #fwd_func, #fwd_func, #outer_func, (double)min);}
+            if(((min) < 0) && !metalerpOddInversionCheckOnce) { metalerpOddInversionCheckOnce=1; printf("\n\033[4;31m*************************\n--METALERP WARNING--\n*************************\n\033[0m\nit seems you have called the oddly symmetric function [%s]'s inverse function: [inv_%s] in dispatcher: [%s] while its minimum was less than zero (%.20f)\nPlease be aware that the odd inversion variants of this lib can produce ambiguous results on some inputs when min < 0 due to domain restriction and arm-biasing around x=0 to ensure (one-one) inverse functionality\n", #fwd_func, #fwd_func, #outer_func, (double)min);}
         #else
             #define METALERP_CHECK_EVEN_INVERSION(outer_func, fwd_func)
             #define METALERP_CHECK_ODD_INVERSION(outer_func, fwd_func, min)

@@ -8,9 +8,9 @@ of transformations and storing them, very AVX & SSE-friendly
 #ifndef KERNEL_DISPATCHERS_H
 #define KERNEL_DISPATCHERS_H
 
-
+#if !defined(BENCHMARKS_H) 
 #include "initializations.h"
-
+#endif //dispatcher macro utilities inclusion
 
 #if !defined(METALERP_RELEASE) && !defined(METALERP_FAST)
         #include <assert.h>
@@ -84,7 +84,7 @@ of transformations and storing them, very AVX & SSE-friendly
     #ifdef METALERP_DBGMODE
         #define ML_LEN out_len
 
-    #elif defined(METALERP_RELEASEMODE)
+    #elif defined(METALERP_RELEASE)
         #define ML_LEN minlen
 
     #else
@@ -104,8 +104,10 @@ of transformations and storing them, very AVX & SSE-friendly
 
 #else
 #define METALERP_CUDA_CHECK if(0)
-METALERP_CUKERNEL_DISPATCHER_CALL(cuFuncName)
+#define METALERP_CUKERNEL_DISPATCHER_CALL(cuFuncName)
 #endif
+
+#if !defined(BENCHMARKS_H) 
 
 #ifndef __CUDACC__
 //declarations
@@ -537,7 +539,6 @@ end of batched dispatcher interface*/
 
 
 //hybrid variants:
-//TODO: make the function that checks the hybrid arrays to determine exactly which number maps to which
 METALERP_DEF_DISPATCHER(hostDispatch_H)
 {   
     
@@ -867,6 +868,7 @@ METALERP_DEF_DISPATCHER(MPDispatch_inv_P_D_O)
 
 
 
+#endif //dispatcher macro utilities inclusion
 
 
 #endif //K_DISPATCHER

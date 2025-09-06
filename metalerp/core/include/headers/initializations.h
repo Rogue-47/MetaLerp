@@ -53,7 +53,7 @@ extern size_t MP_threshold;
 #define METALERP_VOTES_MAX 5
 #define METALERP_THRESHOLD_DIFFERENCE 4096
 #define METALERP_ST_BIAS 4096 //single-threaded biasing offset
-extern int unsigned MP_dispatch_chunksize;
+extern uint32_t MP_dispatch_chunksize;
 
 BOOL32 metalerp_determineFaster(type* restrict in, type* restrict out, size_t length); //1 if single-threaded is faster, 0 if MP is faster
 

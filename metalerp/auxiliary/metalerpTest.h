@@ -5,8 +5,9 @@
 /*
 official testing header for benchmarking or testing metalerp regarding speed or just functionality
 */
-#include "include/platform-specific/perfMeasurement.h"
+
 #include "include/benchmarks.h"
+#include "include/platform-specific/perfMeasurement.h"
 #include "include/test_utils.h"
 
 #endif

@@ -8,25 +8,6 @@
 //this header should only be included individually in combos.h for proper functionality
 
 
-        #ifdef ODD_EVEN_SAME_HYPERPARAMS
-    
-        //for the ascender
-        extern type minA;
-        extern type maxA;
-        //for descender
-        extern type minD;
-        extern type maxD;
-        #define min_A_E minA
-        #define max_A_E maxA
-        #define min_A_O minA
-        #define max_A_O maxA
-        /***********/
-        #define min_D_E minD
-        #define max_D_E maxD
-        #define min_D_O minD
-        #define max_D_O maxD
-    
-        #else
         //for the ascender
         extern type minA_E;
         extern type maxA_E;
@@ -50,39 +31,7 @@
         #define min_D_O minD_O
         #define max_D_O maxD_O
     
-        #endif //hyperparam resolution
 
-#ifdef BRANCHING_SETTERS
-        #ifdef ODD_EVEN_SAME_HYPERPARAMS
-
-            void setMin(type min, BOOL32 Flag);
-
-            void setMax(type max, BOOL32 Flag);
-        #else
-
-            void setMin_E(type min, BOOL32 Flag);
-
-            void setMax_E(type max, BOOL32 Flag);
-
-            void setMin_O(type min, BOOL32 Flag);
-
-            void setMax_O(type max, BOOL32 Flag);
-        #endif
-#else //faster setters (non-branching), default
-    /*minimizes the overhead of having to pass the extra parameter to specify which base variant to change the global parameters of AND to skip the branching
-    essentially making the idea of using them as learnabe parameters (that're adjusted frequently) more palpable*/
-        
-        #ifdef ODD_EVEN_SAME_HYPERPARAMS
-        
-
-            void setMinA(type min);
-
-            void setMaxA(type max);
-
-            void setMinD(type min);
-
-            void setMaxD(type max);
-        #else
             
 
             void setMinA_E(type min);
@@ -103,9 +52,6 @@
             void setMaxD_E(type max);
 
             void setMaxD_O(type max);
-            
-        #endif
-#endif //BRANCHING_SETTERS
 
 #ifdef __CUDACC__
 
@@ -136,69 +82,7 @@
     #define D_min_D_O_idx 6
     #define D_max_D_O_idx 7
 
-    #ifdef BRANCHING_SETTERS
-        #ifdef ODD_EVEN_SAME_HYPERPARAMS
-    
-            //Flag: 1 or greater changes ascending variant's 
-            //parameters, 0 changes descending variant's parameters
-METALERP_DEF_SHIM_2ARG(setMin, type, min, BOOL32, Flag)(type min, BOOL32 Flag)
-            {
-                if(Flag == 0) { min_D_E = SET_MIN(min, max_D_E); COPY_PARAM2DEVICE(D_bParams, min_D_E)}
-                else { min_A_E = SET_MIN(min, max_A_E); COPY_PARAM2DEVICE(D_bParams, min_A_E)} 
-            }
-METALERP_DEF_SHIM_2ARG(setMax, type, max, BOOL32, Flag)(type max, BOOL32 Flag)
-            {
-                if(Flag == 0) {max_D_E = SET_MAX(max); ENFORCE_MAX(min_D_E, max_D_E); COPY_PARAM2DEVICE(D_bParams, max_D_E)}
-                else {max_A_E = SET_MAX(max); ENFORCE_MAX(min_A_E, max_A_E); COPY_PARAM2DEVICE(D_bParams, max_A_E)}
-            }
-        #else
-        
-            //Flag: 1 or greater changes ascending variant's 
-            //parameters, 0 changes descending variant's parameters
-METALERP_DEF_SHIM_2ARG(setMin_E, type, min, BOOL32, Flag)(type min, BOOL32 Flag)
-            {
-                if(Flag == 0) { min_D_E = SET_MIN(min, max_D_E); COPY_PARAM2DEVICE(D_bParams, min_D_E)}
-                else { min_A_E = SET_MIN(min, max_A_E); COPY_PARAM2DEVICE(D_bParams, min_A_E)}
-            }
-METALERP_DEF_SHIM_2ARG(setMax_E, type, max, BOOL32, Flag)(type max, BOOL32 Flag)
-            {
-                if(Flag == 0) { max_D_E = SET_MAX(max); ENFORCE_MAX(min_D_E, max_D_E); COPY_PARAM2DEVICE(D_bParams, max_D_E)}
-                else { max_A_E = SET_MAX(max); ENFORCE_MAX(min_A_E, max_A_E); COPY_PARAM2DEVICE(D_bParams, max_A_E)}
-            }
-METALERP_DEF_SHIM_2ARG(setMin_O, type, min, BOOL32, Flag)(type min, BOOL32 Flag)
-            {
-                if(Flag == 0) { min_D_O = SET_MIN(min, max_D_O); COPY_PARAM2DEVICE(D_bParams, min_D_O)}
-                else { min_A_O = SET_MIN(min, max_A_O); COPY_PARAM2DEVICE(D_bParams, min_A_O)}
-            }
-METALERP_DEF_SHIM_2ARG(setMax_O, type, max, BOOL32, Flag)(type max, BOOL32 Flag)
-            {
-                if(Flag == 0) { max_D_O = SET_MAX(max); ENFORCE_MAX(min_D_O, max_D_O); COPY_PARAM2DEVICE(D_bParams, max_D_O)}
-                else { max_A_O = SET_MAX(max); ENFORCE_MAX(min_A_O, max_A_O); COPY_PARAM2DEVICE(D_bParams, max_A_O)}
-            }
-        #endif
-    #else //faster setters (non-branching), default
-    /*minimizes the overhead of having to pass the extra parameter to specify which base variant to change the global parameters of AND to skip the branching
-    essentially making the idea of using them as learnabe parameters (that're adjusted frequently) more palpable*/
-        
-        #ifdef ODD_EVEN_SAME_HYPERPARAMS
-        
-METALERP_DEF_SHIM(setMinA, type, min)(type min)
-            {
-                min_A_E = SET_MIN(min, max_A_E); COPY_PARAM2DEVICE(D_bParams, min_A_E)
-            }
-METALERP_DEF_SHIM(setMaxA, type, max)(type max) 
-            {
-                max_A_E = SET_MAX(max); ENFORCE_MAX(min_A_E, max_A_E); COPY_PARAM2DEVICE(D_bParams, max_A_E)
-            }
-METALERP_DEF_SHIM(setMinD, type, min)(type min)
-            {
-                min_D_E = SET_MIN(min, max_D_E); COPY_PARAM2DEVICE(D_bParams, min_D_E)
-            }
-METALERP_DEF_SHIM(setMaxD, type, max)(type max)
-            {
-                max_D_E = SET_MAX(max); ENFORCE_MAX(min_D_E, max_D_E); COPY_PARAM2DEVICE(D_bParams, max_D_E)
-            }
-        #else
+
             
 METALERP_DEF_SHIM(setMinA_E, type, min)(type min)
             {
@@ -215,8 +99,7 @@ METALERP_DEF_SHIM(setMinD_O, type, min)(type min) { min_D_O = SET_MIN(min, max_D
         
 METALERP_DEF_SHIM(setMaxD_E, type, max)(type max) { max_D_E = SET_MAX(max); ENFORCE_MAX(min_D_E, max_D_E); COPY_PARAM2DEVICE(D_bParams, max_D_E)}
 METALERP_DEF_SHIM(setMaxD_O, type, max)(type max) { max_D_O = SET_MAX(max); ENFORCE_MAX(min_D_O, max_D_O); COPY_PARAM2DEVICE(D_bParams, max_D_O)}
-        #endif
-    #endif //BRANCHING_SETTERS
+
 
 #endif //CUDA LAYER
 
@@ -431,7 +314,6 @@ NM(descendingV_O_LeftArm)(type x)
 }
 
 /*********************************/
-//TODO: maybe another micro-optimization, pre-compute minimums and maximums with sub and sum epsilon for readily computed open-interval boundaries
 METALERP_INTERNAL_DEVFUNC type NM(clampY_A_Even)(type y)
 {   //stay inside (a, b) open interval, because equalling either one of those parameters can result in division by zero in the inverse formulas (both ascender and descender can suffer from this)
     //the value will certainly be comically large with such a small denominator that results from subtractions like: 5 - 4.9... but atleast it won't be a zero in the denom
@@ -508,9 +390,7 @@ type inv_ascendingVariant_O2(type y)
 }
 */
 
-//TODO (later stages, perhaps post-release): some optimizations here would be nice, this function's branches are few but each one very heavy (bad CPU pipeline stalling).
-//possible alternative to the current odd variant scheme: compute sign of y and based on that make a fused left and right arm version that utilizes the sign of y
-//leaving the only branching part to be the clamp arm calls, which may be heavier in totality but less affected by branch miss penalties
+
 METALERP_INTERNAL_KERNEL(inv_ascendingVariant_O)(type y)
 {
     return NBSGN(min_A_O) * ((y ASC_POS_COMPARISON cast(type, 0)) ? NM(inv_ascendingV_O_RightArm)(y) :

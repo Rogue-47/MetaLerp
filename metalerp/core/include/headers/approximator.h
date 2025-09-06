@@ -7,30 +7,25 @@
 */
 
 #include "kDispatcher.h"
+#ifdef BENCHMARKS_H
+#include "platformDefs.h"
+#endif
 
 
 #ifdef __CUDACC__
 
-/*variables*/
-
-/*setter declarations and definitions*/
-
     #define METALERP_INTERNAL_APPROXIMATOR(funcName) METALERP_INTERNAL_KERNEL(funcName)
     
-    #define METALERP_DEFINE_APPROXIMATOR(funcName) 
+    #define METALERP__DEF_APPROX(funcName) 
 
     #define METALERP_DEFINE_SETTER(fullFuncSignature, definition) fullFuncSignature{definition}
 
 #elif defined(METALERP_CUDA_LAYER_READY)
 
-/*variables*/
-
-/*setter declarations*/
-
     #define METALERP_INTERNAL_APPROXIMATOR(funcName) STATIC_FORCE_INLINE type NM(funcName) 
 
-    #define METALERP_DEFINE_APPROXIMATOR(funcName) \
-        void deviceDispatch_##funcName(const type* __restrict__ in, type* __restrict out, size_t len); \
+    #define METALERP__DEF_APPROX(funcName) \
+        void deviceDispatch_##funcName(const type* restrict in, type* restrict out, size_t len); \
         \
         METALERP_DEF_DISPATCHER(hostDispatch_##funcName)    \
         {   \
@@ -74,23 +69,25 @@
     #define METALERP_INTERNAL_APPROXIMATOR(funcName) STATIC_FORCE_INLINE type NM(funcName) 
 #endif /*CUDA-host switching*/
 
-    #define METALERP_DefApproximator(funcName)   \
+    #define METALERP_DEFINE_APPROXIMATOR(funcName)   \
         METALERP_INTERNAL_DEVFUNC   \
         type NM(funcName)(type x);  \
                                     \
-        METALERP_DEFINE_APPROXIMATOR(funcName)  \
+        METALERP__DEF_APPROX(funcName)  \
                                                 \
         METALERP_INTERNAL_APPROXIMATOR(funcName)
 /**************/
 
+#ifndef BENCHMARKS_H
+
 typedef struct 
 {
-    type min, max_K, max_V;
+    type max_K, Max_V_minus_Min;
 } sigmackParams;
 
 typedef struct /*takes std (stDeviation) and mean*/
 {
-    type min, mean, kParam, max_V, vParam, stDeviation, minFactor, maxFactor, kFactor;
+    type min, mean, kParam, vParam, stDeviation, minFactor, maxFactor, kFactor, Max_V_minus_Min;
 } normDistPDFParams;
 
 /*magic number time (jk, refer to the desmos approximators sheet)*/
@@ -114,14 +111,13 @@ extern normDistPDFParams normDistApproxParams;
     /*same order as in the struct*/
     __device__ type D_sigmackApproxParams[3]; 
 
-    __device__ type D_normDistApproxParams[4];
+    __device__ type D_normDistApproxParams[5];
 
     #define SIGMACKCOPY_PARAMS2DEVICE() \
     if(METALERP_CUDAMODE) \
     {   \
-        CUDA_CALL(cudaMemcpyToSymbol(D_sigmackApproxParams, &(sigmackApproxParams.min), sizeof(type), 0, cudaMemcpyHostToDevice)) \
-        CUDA_CALL(cudaMemcpyToSymbol(D_sigmackApproxParams, &(sigmackApproxParams.max_K), sizeof(type), sizeof(type), cudaMemcpyHostToDevice))  \
-        CUDA_CALL(cudaMemcpyToSymbol(D_sigmackApproxParams, &(sigmackApproxParams.max_V), sizeof(type), sizeof(type)*2, cudaMemcpyHostToDevice)) \
+        CUDA_CALL(cudaMemcpyToSymbol(D_sigmackApproxParams, &(sigmackApproxParams.max_K), sizeof(type), 0, cudaMemcpyHostToDevice))  \
+        CUDA_CALL(cudaMemcpyToSymbol(D_sigmackApproxParams, &(sigmackApproxParams.Max_V_minus_Min), sizeof(type), sizeof(type), cudaMemcpyHostToDevice))    \
     }
 
     #define NORMDISTCOPY_PARAMS2DEVICE()    \
@@ -130,7 +126,7 @@ extern normDistPDFParams normDistApproxParams;
         CUDA_CALL(cudaMemcpyToSymbol(D_normDistApproxParams, &(normDistApproxParams.min), sizeof(type), 0, cudaMemcpyHostToDevice)) \
         CUDA_CALL(cudaMemcpyToSymbol(D_normDistApproxParams, &(normDistApproxParams.mean), sizeof(type), sizeof(type), cudaMemcpyHostToDevice))  \
         CUDA_CALL(cudaMemcpyToSymbol(D_normDistApproxParams, &(normDistApproxParams.kParam), sizeof(type), sizeof(type)*2, cudaMemcpyHostToDevice)) \
-        CUDA_CALL(cudaMemcpyToSymbol(D_normDistApproxParams, &(normDistApproxParams.max_V), sizeof(type), sizeof(type)*3, cudaMemcpyHostToDevice)) \
+        CUDA_CALL(cudaMemcpyToSymbol(D_normDistApproxParams, &(normDistApproxParams.Max_V_minus_Min), sizeof(type), sizeof(type)*3, cudaMemcpyHostToDevice)) \
     }
 #else
     #define SIGMACKCOPY_PARAMS2DEVICE()
@@ -145,19 +141,18 @@ METALERP_DEFINE_SETTER
 (   /*0.5 offset not included as tweakable since it seems reasonable to leave it as constant for the function's best tunable approximation set*/
 void setSigmackParams(type min, type max, type k, type v),
 type funcMax = SET_MAX(max);
-sigmackApproxParams.min = SET_MIN(min, funcMax);
+type Min = SET_MIN((min), funcMax);
 sigmackApproxParams.max_K = k * funcMax;
-sigmackApproxParams.max_V = v * funcMax; 
+type max_V = v * funcMax; 
+sigmackApproxParams.Max_V_minus_Min = max_V - Min;
 SIGMACKCOPY_PARAMS2DEVICE()
 )
 
 METALERP_DEFINE_SETTER
 (   
 void resetSigmackParams(),
-sigmackApproxParams.min = METALERP_SIGMACK_MIN;
-sigmackApproxParams.max_K = METALERP_SIGMACK_MAX * METALERP_SIGMACK_K;
-sigmackApproxParams.max_V = METALERP_SIGMACK_MAX * METALERP_SIGMACK_V; 
-SIGMACKCOPY_PARAMS2DEVICE()
+
+setSigmackParams(METALERP_SIGMACK_MIN, METALERP_SIGMACK_MAX, METALERP_SIGMACK_K, METALERP_SIGMACK_V);
 )
 
 
@@ -176,10 +171,11 @@ normDistApproxParams.min = normDistApproxParams.minFactor / normDistApproxParams
 normDistApproxParams.kParam = 
 normDistApproxParams.stDeviation / (normDistApproxParams.kFactor * funcMax);
 
-normDistApproxParams.max_V = funcMax * normDistApproxParams.vParam;
-
+type max_V = funcMax * normDistApproxParams.vParam;
+normDistApproxParams.Max_V_minus_Min = max_V - normDistApproxParams.min;
 NORMDISTCOPY_PARAMS2DEVICE()
 )
+
 
 METALERP_DEFINE_SETTER
 (   /*0.5 offset not included as tweakable since it seems reasonable to leave it as constant for the function's best tunable approximation set*/
@@ -209,27 +205,36 @@ setNormDistParams(1, 0); //default std=1 and mean=0
 METALERP_INTERNAL_DEVFUNC 
 type NM(sig_RightArm)(type x)
 {
-    type t = x/(x + METALERP_NM_APPROX(sigmackApproxParams, max_K, 1));
-    return type_fma(t, METALERP_NM_APPROX(sigmackApproxParams, max_V, 2), 
-    type_fma(-t, METALERP_NM_APPROX(sigmackApproxParams, min, 0), METALERP_SIGMACK_OFFSET) );
+    type t = x/(x + METALERP_NM_APPROX(sigmackApproxParams, max_K, 0));
+    return type_fma(t, METALERP_NM_APPROX(sigmackApproxParams, Max_V_minus_Min, 1), METALERP_SIGMACK_OFFSET);
 }
 
 METALERP_INTERNAL_DEVFUNC 
 type NM(sig_LeftArm)(type x)
 {
-    type t = x/(METALERP_NM_APPROX(sigmackApproxParams, max_K, 1) - x);
-    return type_fma(t, METALERP_NM_APPROX(sigmackApproxParams, max_V, 2), 
-    type_fma(-t, METALERP_NM_APPROX(sigmackApproxParams, min, 0), METALERP_SIGMACK_OFFSET) );
+    type t = x/(METALERP_NM_APPROX(sigmackApproxParams, max_K, 0) - x);
+    return type_fma(t, METALERP_NM_APPROX(sigmackApproxParams, Max_V_minus_Min, 1), METALERP_SIGMACK_OFFSET);
 }
 
 /*fast and accurate Normal Distribution's CDF (sigmoid/standard logistic function) approximation*/
-METALERP_DefApproximator(Sigmack)(type x) /*Sigmack = Sig(moid) + (Car)mack*/
+METALERP_DEFINE_APPROXIMATOR(Sigmack)(type x) /*Sigmack = Sig(moid) + (Car)mack*/
 {
     return (x >= 0 ? NM(sig_RightArm(x)) : NM(sig_LeftArm(x)));
 }
 
+/* overall slower for some reason
+METALERP_DEFINE_APPROXIMATOR(Sigmack_v2)(type x) //Sigmack = Sig(moid) + (Car)mack
+{
+    type absx = type_abs(x);
+    type t = (absx / (absx + METALERP_NM_APPROX(sigmackApproxParams, max_K, 1)));
+    t = x >= 0 ? t : -t;
+    return type_fma(t, METALERP_NM_APPROX(sigmackApproxParams, Max_V_minus_Min, 3), METALERP_SIGMACK_OFFSET);
+}
+*/
+//
 /*fast and accurate Normal Distribution's PDF (Gaussian) approximation*/
-METALERP_DefApproximator(NormDistApproximator)(type x)
+/*
+METALERP_DEFINE_APPROXIMATOR(NormDistApproximator_v1)(type x)
 {
     type xShifted = x - METALERP_NM_APPROX(normDistApproxParams, mean, 1);
     xShifted *= xShifted;
@@ -237,6 +242,16 @@ METALERP_DefApproximator(NormDistApproximator)(type x)
     return type_max(0, 
     LERP(METALERP_NM_APPROX(normDistApproxParams, min, 0), METALERP_NM_APPROX(normDistApproxParams, max_V, 3), t));
 }
+*/
 
+METALERP_DEFINE_APPROXIMATOR(NormDistApproximator)(type x)
+{
+    type xShifted = x - METALERP_NM_APPROX(normDistApproxParams, mean, 1);
+    xShifted *= xShifted;
+    type t = METALERP_NM_APPROX(normDistApproxParams, kParam, 2) / ( METALERP_NM_APPROX(normDistApproxParams, kParam, 2) + xShifted); 
+    return type_max(cast(type, 0), type_fma(t, METALERP_NM_APPROX(normDistApproxParams, Max_V_minus_Min, 3), METALERP_NM_APPROX(normDistApproxParams, min, 0)));
+}
+
+#endif //dispatcher macro utilities inclusion
 
 #endif  //approximators header

@@ -182,8 +182,10 @@ inv_descendingVariant_E, inv_descendingV_O_LeftArm, inv_descendingV_O_RightArm,
 p_inv_ascendingVariant_E, p_inv_ascendingV_O_LeftArm_H, p_inv_ascendingV_O_RightArm_H,
 p_inv_descendingVariant_E, p_inv_descendingV_O_LeftArm_H, p_inv_descendingV_O_RightArm_H,
 };
+#define ML_COMBOS_ARRSIZE(arr) (sizeof((arr)) / (sizeof((arr)[0])))
 
-
+static const int64_t METALERP_HYBRID_ARM_TABLE_SIZE = (sizeof(allVariants_R) == sizeof(allVariants_L)) ?  cast(int64_t, ML_COMBOS_ARRSIZE(allVariants_R)) : cast(int64_t, 1);
+static const int64_t METALERP_HYBRID_LR_ARM_TABLE_SIZE = cast(int64_t, ML_COMBOS_ARRSIZE(allVariants));
 
 #else
 
@@ -292,20 +294,7 @@ METALERP_INTERNAL_KERNEL(hybridVariant_LR)(type x)
     #undef min_D_O
     #undef max_D_O
 
-    #ifdef ODD_EVEN_SAME_HYPERPARAMS
-
-    #define min_A_E minA
-    #define max_A_E maxA
-    #define min_A_O minA
-    #define max_A_O maxA
-    /***********/
-    #define min_D_E minD
-    #define max_D_E maxD
-    #define min_D_O minD
-    #define max_D_O maxD
-
-    #else
-
+    
     #define min_A_E minA_E
     #define max_A_E maxA_E
     #define min_A_O minA_O
@@ -316,11 +305,7 @@ METALERP_INTERNAL_KERNEL(hybridVariant_LR)(type x)
     #define min_D_O minD_O
     #define max_D_O maxD_O
 
-    #endif //base
-
-    //advancedForms params
-        //TODO: currently works only for the default global parameter mode which allows full independence of global parameters (but the issue is fixed in baseForms)
-
+    /********************************************************/
     #undef p_min_A_E 
     #undef p_max_A_E_combine_K 
     #undef p_max_A_E_combine_Z 

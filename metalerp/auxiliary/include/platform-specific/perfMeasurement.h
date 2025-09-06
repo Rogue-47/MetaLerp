@@ -15,21 +15,37 @@
     #include "../../../core/include/headers/external/xoshiro256plus.h"
     #include "../../../core/include/headers/external/xoshiro256plusplus.h"
     
+    #ifdef METALERP_VOTES_MAX
+        #undef METALERP_VOTES_MAX
+        #undef METALERP_AVERAGING_SIZE
+        #define METALERP_VOTES_MAX 9
+        #define METALERP_AVERAGING_SIZE 7
+    #endif
 
 
     //utils
+
     #define ALLOCATE_IN_OUT(count) \
         type* in##count = malloc(sizeof(type)*count);   \
         type* out##count = malloc(sizeof(type)*count); \
         fillArr_RandomF(in##count, count, 0);
 
-    #define RE_SCRAMBLE_IN_OUT(count) fillArr_RandomF(in##count, count, 0);
+    #define SCALAR_VS_Measurement(count, function1, function2) determineFasterScalar(in##count, out##count, cast(size_t, count), cast(scalarTransform, function1), cast(scalarTransform, function2), #function1, #function2)
 
-    #define FREE_IN_OUT(count) free(in##count); free(out##count);
+    #define BATCHED_VS_Measurement(count, function1, function2) determineFasterBatch(in##count, out##count, cast(size_t, count), cast(batchTransform, function1), cast(batchTransform, function2), #function1, #function2)
 
-    #define REUSE_IN_OUT(count) in##count = malloc(sizeof(type)*count); out##count = malloc(sizeof(type)*count); fillArr_RandomF(in##count, count, 0);
 
-    
+    #define RE_SCRAMBLE_IN_OUT(count) fillArr_RandomF(in##count, count, 0); /*
+    the perf measurement functions of metalerp randomize arrays and automatically do Dcache-heating themselves
+    so there's no need for this when only metalerp's perf measurement utilities are used*/
+
+    #define FREE_IN_OUT(count) free(in##count); in##count = NULL; free(out##count); out##count = NULL;
+
+    #define REUSE_IN_OUT(count) if(in##count && out##count) {FREE_IN_OUT(count)} if(!in##count) { in##count = malloc(sizeof(type)*count); fillArr_RandomF(in##count, count, 0); } if(!out##count) { out##count = malloc(sizeof(type)*count); }
+
+
+    METALERP_HEURISTICS_VARIABLES
+    static double ELAPSED;
 
     //randomizers (good statistical properties, from xoshiro256+)
     STATIC_FORCE_INLINE float posrandF() //+[0, 1]
@@ -90,14 +106,10 @@
 
 
     typedef type(*scalarTransform)(type);
-    void determineFasterScalar(type* restrict in, type* restrict out, size_t length, scalarTransform fn1, scalarTransform fn2)
+    void determineFasterScalar(type* restrict in, type* restrict out, size_t length, scalarTransform fn1, scalarTransform fn2, const char* fn1Name, const char* fn2Name)
     {   
-        #if _WIN32
-        static LARGE_INTEGER FREQUENCY, START, END; static double ELAPSED_S, ELAPSED_MP;
-        #else
-        struct timespec START, END; double ELAPSED_F1, ELAPSED_F2;
-        #endif
-
+        METALERP_HEURISTICS_VARIABLES double ELAPSED_F1, ELAPSED_F2;
+        
         for(int64_t i = length-1; i>=0; --i)
         { 
             in[i] = mixedrandF2();
@@ -161,31 +173,31 @@
         F1ElapsedSum /= cast(double, METALERP_VOTES_MAX);
         F2ElapsedSum /= cast(double, METALERP_VOTES_MAX);
 
-        if(F1ElapsedSum <= F2ElapsedSum)
+        printf("\n\n[%s] vs [%s] scalar single-threaded execution results: \n------------------\n", fn1Name, fn2Name);
+        if(F1ElapsedSum <= F2ElapsedSum) //absolute difference works too but I'm not too bothered to refactor this stupidity
         {
-            printf("Function 1 was faster by %.5f (ms) on average (total exec time)\n", (F2ElapsedSum - F1ElapsedSum) * 1000.0);
+            double diff = (F2ElapsedSum - F1ElapsedSum);
+            printf("[%s] was faster by %.7f (ms) on average (total exec time)\nand %.5f (ns) faster on average (single-execution)\n", fn1Name, diff * 1000.0, cast(double, (diff * cast(double, 1e+9)) / length));
         }
         else
         {
-            printf("Function 2 was faster by %.5f (ms) on average (total exec time)\n", (F1ElapsedSum - F2ElapsedSum) * 1000.0);
+            double diff = (F1ElapsedSum - F2ElapsedSum);
+            printf("[%s] was faster by %.7f (ms) on average (total exec time)\nand %.5f (ns) faster on average (single-execution)\n", fn2Name,  diff * 1000.0, cast(double, (diff * cast(double, 1e+9)) / length));
         }
     }
 
-    typedef void(*batchTransform)(type* restrict in, type* restrict out, size_t length);
-    void determineFasterBatch(type* restrict in, type* restrict out, size_t length, batchTransform fn1, batchTransform fn2)
+    typedef void(*batchTransform)(type* restrict in, type* restrict out, const size_t length);
+
+    void determineFasterBatch(type* restrict in, type* restrict out, size_t length, batchTransform fn1, batchTransform fn2, const char* fn1Name, const char* fn2Name)
     {   
-        #if _WIN32
-        static LARGE_INTEGER FREQUENCY, START, END; static double ELAPSED_S, ELAPSED_MP;
-        #else
-        static struct timespec START, END; static double ELAPSED_F1, ELAPSED_F2;
-        #endif
+        METALERP_HEURISTICS_VARIABLES double ELAPSED_F1, ELAPSED_F2;
+
 
         for(int64_t i = length-1; i>=0; --i)
         { 
             in[i] = mixedrandF2();
             
             out[i] = 0;
-
         }
 
         for(size_t i = 0; i<length; ++i)
@@ -237,13 +249,17 @@
         F1ElapsedSum /= cast(double, METALERP_VOTES_MAX);
         F2ElapsedSum /= cast(double, METALERP_VOTES_MAX);
 
+        printf("\n\n[%s] vs [%s] Batched execution results: \n------------------\n", fn1Name, fn2Name);
+
         if(F1ElapsedSum <= F2ElapsedSum) 
         {
-            printf("Function 1 was faster by %.5f (ms) on average (total exec time)\n", (F2ElapsedSum - F1ElapsedSum) * 1000.0);
+            double diff = (F2ElapsedSum - F1ElapsedSum) * 1000.0;
+            printf("[%s] was faster by %.7f (ms) on average (total exec time)\nand %.5f (ns) faster on average (single-execution)\n", fn1Name, diff, cast(double, (diff * cast(double, 1e+3)) / length));
         }
         else
         {
-            printf("Function 2 was faster by %.5f (ms) on average (total exec time)\n", (F1ElapsedSum - F2ElapsedSum) * 1000.0);
+            double diff = (F1ElapsedSum - F2ElapsedSum) * 1000.0;
+            printf("[%s] was faster by %.7f (ms) on average (total exec time)\nand %.5f (ns) faster on average (single-execution)\n", fn2Name, diff, cast(double, (diff * cast(double, 1e+3)) / length));
         }
     }
 
@@ -398,7 +414,7 @@
         fillArr_RandomF(y##function##_DI_VEC, arr_len, 0); /*0 to fill with mixed-sign rands, 1 to fill with positive rands, -1 to fill with negatives*/                                                    \
         function(warmUpArrIN##function##DI, warmUpArrOUT##function##DI, 1000); /*warmup of the vectorized versions*/\
         perfSums = 0.0;  totalT = 0.0;   printf("\n**************************************************\n%s\n", #function);  GET_FREQ(&FREQUENCY);    \
-        /*no trick-summing here due to the structure of the kernel loopers*/                            \
+        if(METALERP_CUDAMODE) {printf("----DEVICE ROUTINE MEASUREMENT----\n");}/*no trick-summing here due to the structure of the kernel loopers*/                            \
         heatUpPages(y##function##_DI_VEC, y##function##_DO_VEC, arr_len);  /*page-heating right before the measurement run*/\
         noDBG_qPerf( , function, y##function##_DI_VEC, y##function##_DO_VEC, arr_len) \
         totalT = (double)ELAPSED; /*total time is being measured here instead of aggregated since the whole loop finishes inside the function call*/ \
@@ -415,7 +431,7 @@
         fillArr_RandomF(warmUpArrIN##function##DI##N, 1000, -1);                                          \
         fillArr_RandomF(y##function##_DI_VEC##N, arr_len, -1);       \
         function(y##function##_DI_VEC##N, warmUpArrOUT##function##DI##N, 1000); \
-        perfSums = 0.0;  totalT = 0.0;   printf("\n**************************************************\n%s\n", #function);  GET_FREQ(&FREQUENCY);    \
+        if(METALERP_CUDAMODE) {printf("----DEVICE ROUTINE MEASUREMENT----\n");}perfSums = 0.0;  totalT = 0.0;   printf("\n**************************************************\n%s\n", #function);  GET_FREQ(&FREQUENCY);    \
         heatUpPages(y##function##_DI_VEC##N, y##function##_DO_VEC##N, arr_len);                        \
         noDBG_qPerf( , function, y##function##_DI_VEC##N, y##function##_DO_VEC##N, arr_len) \
         totalT = (double)ELAPSED;  \
@@ -432,7 +448,7 @@
         fillArr_RandomF(warmUpArrIN##function##DI##P, 1000, 1);                                          \
         fillArr_RandomF(y##function##_DI_VEC##P, arr_len, 1);     \
         function(warmUpArrIN##function##DI##P, warmUpArrOUT##function##DI##P, 1000); \
-        perfSums = 0.0;  totalT = 0.0;   printf("\n**************************************************\n%s\n", #function);  GET_FREQ(&FREQUENCY);    \
+        if(METALERP_CUDAMODE) {printf("----DEVICE ROUTINE MEASUREMENT----\n");}perfSums = 0.0;  totalT = 0.0;   printf("\n**************************************************\n%s\n", #function);  GET_FREQ(&FREQUENCY);    \
         heatUpPages(y##function##_DI_VEC##P, y##function##_DO_VEC##P, arr_len);                            \
         noDBG_qPerf( , function, y##function##_DI_VEC##P, y##function##_DO_VEC##P, arr_len) \
         totalT = (double)ELAPSED;  \

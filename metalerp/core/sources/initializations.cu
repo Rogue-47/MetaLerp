@@ -3,6 +3,8 @@
 
 #include "../include/metalerpDefs.h"
 
+#include<stdio.h>
+
 //fundamental
 type signBias;
 BOOL32 METALERP_CUDAMODE;
@@ -31,16 +33,12 @@ type p_min_A_O;
 type p_min_D_E;
 type p_min_D_O;
 
-#ifndef ODD_EVEN_SAME_HYPERPARAMS
+
 p_StoredParams_Amax_E MAX_PARAMS_AE;
 p_StoredParams_Amax_O MAX_PARAMS_AO;
 p_StoredParams_Dmax_E MAX_PARAMS_DE;
 p_StoredParams_Dmax_O MAX_PARAMS_DO;
 
-#else
-p_StoredParams_Amax_E MAX_PARAMS_AE;
-p_StoredParams_Dmax_E MAX_PARAMS_DE;
-#endif
 
 //combos
 enum Functions RightArm;
@@ -179,8 +177,10 @@ void metalerp_checkCUDA(BOOL8* availabilityVar)
     }
 }
 
+
 void metalerp_CUDA_init()
 {
+
     METALERP_CUDAMODE = 1;
 
     signBias = cast(type, 1);
@@ -207,8 +207,9 @@ BOOL32 getCUDA_Mode()
     return METALERP_CUDAMODE;
 }
 
+
 void setCUDA_Mode(BOOL32 num)
-{   
+{    
     if(!METALERP_CUDA_AVAILABLE)
     {
         fprintf(stderr, "Metalerp cuda processing mode switch failure:\nCannot manipulate CUDA processing mode as no devices on this machine possess CUDA capability.\n");

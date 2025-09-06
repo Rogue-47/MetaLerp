@@ -16,7 +16,8 @@ size_t MP_threshold;
 
 BOOL32 metalerp_determineFaster(type* restrict in, type* restrict out, size_t length) //returns 1 if single-threaded is faster, 0 if MP is faster
 {   
-    METALERP_HEURISTICS_KIT
+    METALERP_HEURISTICS_VARIABLES static double ELAPSED_S, ELAPSED_MP;
+    
     //takes the brunt of initial page-faults, any work is being done in the 2 loops that access both arrays differently
     for(int64_t i = length-1; i>=0; --i)
     { 
@@ -175,9 +176,9 @@ void metalerp_OMP_init()
 }   
 
 
-
 void metalerp_init() //only function to call in main
 {
+
     metalerp_CUDA_init();
 
     selfSeed();

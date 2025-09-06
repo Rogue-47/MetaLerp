@@ -13,7 +13,7 @@
         #define SLEEP(ms) Sleep((ms))
 
 
-        #define METALERP_HEURISTICS_KIT static LARGE_INTEGER FREQUENCY, START, END; static double ELAPSED_S, ELAPSED_MP;
+        #define METALERP_HEURISTICS_VARIABLES LARGE_INTEGER FREQUENCY, START, END;
 
         //compiler-specifics
         #ifdef _MSC_VER
@@ -33,10 +33,12 @@
         #define SLEEP(ms) usleep(((unsigned int)(ms))*((unsigned int)1000)) /*this takes microsecs so the conversion is necessary*/
 
 
-        #define METALERP_HEURISTICS_KIT static struct timespec START, END; static double ELAPSED_S, ELAPSED_MP;
+        #define METALERP_HEURISTICS_VARIABLES struct timespec START, END;
     
         //compiler-specifics
         #define METALERP_MACRO_PRAGMA(arg) _Pragma(#arg)
+
+
     #endif
 
 #endif //platform definitions header
