@@ -150,13 +150,13 @@
 ### The more b -> $\infty$, the more accurate the expression ( y $\approx$ x + a) becomes, for the ascending transform; and vice-versa for the descending
 
 
-## Collaboration in expanding, refining, polishing, and/or demonstrating/making more examples (approximation and emulation functions) of this library and its mathematical foundation is welcome. If you messed with the formulas of this lib and managed to come up with anything cool, please publish
+## Collaboration in expanding, refining, polishing, and/or demonstrating/making more examples (approximation and emulation functions) of this library and its mathematical foundation is welcome. If you messed with the formulas of this lib and managed to come up with anything cool (like a new approximation or behavior), please contact me to discuss adding it to the lib's interface
 
 
 
 ## Disclaimer Section:
-### Metalerp started as and continues to be an experimental hobby project as of now, if any bugs are found in the lib's runtime or with the lib's compilation interface (especially if you experimented with further configuration of the lib's behavior via the common header), please contact me at metalerplib@gmail.com.
+### Metalerp started as and continues to be a highly experimental hobby project as of now, if any bugs are found in the lib's runtime or with the lib's compilation interface (especially if you experimented with further configuration of the lib's behavior via the common header), please contact me at metalerplib@gmail.com.
 
-### ***I guarantee no warranty or liability to the usage and deployment of this library in software, per the Lesser GNU Public License.***
+### ***I guarantee NO warranty or liability to the usage and deployment of this library in software, as per the Lesser GNU Public License.***
 
 ## - Rogue-47 / Omar M. Mahmoud
