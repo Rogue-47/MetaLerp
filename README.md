@@ -23,6 +23,11 @@
 ## [Demonstration](https://www.desmos.com/calculator/cf0389db8e)
 ## [Approximator Demonstration](https://www.desmos.com/calculator/neji45kf1n)
 
+## Pending:
+ - ### Extensive testing on windows (and msvc full support)
+ - ### Windows wheels for the python package
+ - ### Clang compiler support
+
 # How to use (C/C++):
 ### Building 
 ### To see the function interface of the lib, simply look in the metalerp/metalerp.h file - it defines all the functions you can directly use.
