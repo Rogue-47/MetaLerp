@@ -8,7 +8,7 @@
 #define METALERP_FAST
 #endif
 
-#include "../metalerp/metalerp.h"
+#include "resources/metalerp/metalerp.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
