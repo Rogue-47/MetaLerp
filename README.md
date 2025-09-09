@@ -18,12 +18,6 @@
 
 ## Generally it can be applied in any domain where non-linear transformation of something to an unbounded or bounded range in many different ways, or vice-versa (bounded to unbounded) by using the inverse tranformations.
 
-### pending:
- - #### some minute optimizations are still to be implemented
- - #### extensive testing on windows
- - #### build and deployment automation scripts for windows
- - #### python package wheels for windows
-
 # Desmos Sheets:
 ### The following sheets are helpful for visualization and seeing the effect of configuring the parameters of the formulas
 ## [Demonstration](https://www.desmos.com/calculator/cf0389db8e)
@@ -84,12 +78,7 @@
 
 # For the python package:
     pip install metalerp
-### and just import it in any .py file
-
-
-## For building the python package locally with the fastest possible flags for your machine:
-    make pymetalerp
-### if it was successful, you can then import it in any .py file
+### and just import it in any .py file Note: **the package is available as a source dist, meaning you'll need NVIDIA's nvcc compiler (with a CUDA_PATH environment variable set, pointing to its folder that is the parent of the bin/ folder), and a host C Compiler (currently, only gcc supported) to build the package.**
 
 # Minimal example (lib builds):
 ### C/C++:
@@ -150,13 +139,13 @@
 ### The more b -> $\infty$, the more accurate the expression ( y $\approx$ x + a) becomes, for the ascending transform; and vice-versa for the descending
 
 
-## Collaboration in expanding, refining, polishing, and/or demonstrating/making more examples (approximation and emulation functions) of this library and its mathematical foundation is welcome. If you messed with the formulas of this lib and managed to come up with anything cool (like a new approximation or behavior), please contact me to discuss adding it to the lib's interface
+## Collaboration in expanding, refining, polishing, and/or demonstrating/making more examples (approximation and emulation functions) of this library and its mathematical foundation is welcome. If you messed with the formulas of this lib and managed to come up with anything cool, please publish
 
 
 
 ## Disclaimer Section:
-### Metalerp started as and continues to be a highly experimental hobby project as of now, if any bugs are found in the lib's runtime or with the lib's compilation interface (especially if you experimented with further configuration of the lib's behavior via the common header), please contact me at metalerplib@gmail.com.
+### Metalerp started as and continues to be an experimental hobby project as of now, if any bugs are found in the lib's runtime or with the lib's compilation interface (especially if you experimented with further configuration of the lib's behavior via the common header), please contact me at metalerplib@gmail.com.
 
-### ***I guarantee NO warranty or liability to the usage and deployment of this library in software, as per the Lesser GNU Public License.***
+### ***I guarantee no warranty or liability to the usage and deployment of this library in software, per the Lesser GNU Public License.***
 
 ## - Rogue-47 / Omar M. Mahmoud
