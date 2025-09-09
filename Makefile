@@ -20,11 +20,11 @@ DEV_OUT_DEFAULT :=
 
 MACRO_DEF_ARGS := 
 
-#not really needed unless there's an LD_LIBRARY_PATH env variable poinitng to that directory
-SYSTEM_LIBS_PATH := /usr/local/lib
+
+LOCAL_LIBS_PATH := /usr/local/lib
 
 #this is normally for things like copying the shared library to the system's library path on linux, or doing extra processing on the shared lib file etc.
-EXTRA_SHARED_LIB_ROUTINES = sudo cp $(LIB_DIR)/$(SHARED_LIB_OUT) $(SYSTEM_LIBS_PATH)
+EXTRA_SHARED_LIB_ROUTINES = sudo cp $(LIB_DIR)/$(SHARED_LIB_OUT) $(LOCAL_LIBS_PATH)
 ###############################################################################################
 
 LIB_NAME :=metalerp
@@ -35,7 +35,7 @@ CC = gcc
 CUDA_PATH := /usr/local/cuda
 CUDACC := $(CUDA_PATH)/bin/nvcc
 
-LIB_LINK_ARGS := -L/usr/local/cuda/lib64 -lcudart -lcudadevrt -lm
+LIB_LINK_ARGS := -L/usr/local/cuda/lib64 -lcudart -lcudadevrt -lm -lgomp
 
 #configure metalerp's macro interface through this variable (note: as of the current version - the macro interface is a little messy and needs documentation, and some of it is a little under-tested)
 
@@ -76,8 +76,7 @@ BIN_STRIPPING_CALL = strip --strip-unneeded
     static_f32 static_f32_release static_f32_fast \
     static_f64 static_f64_release static_f64_fast \
     dev_f32 dev_f32_release dev_f32_fast \
-    dev_f64 dev_f64_release dev_f64_fast \
-	pymetalerp
+    dev_f64 dev_f64_release dev_f64_fast
 
 RUN_FILE = compile_main.sh
 BIN_DIR = ./bin
@@ -392,24 +391,6 @@ dev_f64_fast:
 	printf "#last build: dev build\n\necho \"nothing to do, just run your program: $(DEV_OUT_DEFAULT).\"\n" > $(BIN_DIR)/$(RUN_FILE)
 	chmod u+x $(BIN_DIR)/$(RUN_FILE)
 
-pymetalerp: LIB_LINK_ARGS += -L/usr/local/cuda/lib64 -lcudart -lcudadevrt -lm
-pymetalerp: MACRO_DEF_ARGS += -DMETALERP_FAST
-pymetalerp: CUDACC_ARGS += --compiler-options '-fPIC'
-pymetalerp: CC_ARGS += -fPIC
-pymetalerp:
-	-rm -f $(LIB_DIR)/$(STATIC_LIB_OUT)
-	make create
-	
-	echo "NOTE: if you haven't, make sure you have included metalerp/metalerp.h at the top of the main file, and put METALERP_INIT at the beginning of the main function."
-	$(CUDACC) $(MACRO_DEF_ARGS) $(CUDACC_ARGS) -c -o $(OBJ_DIR)/metalerp_cuda_runtime.o metalerp/core/sources/initializations.cu
-	$(CC) $(LIB_INIT_C_ARGS) $(MACRO_DEF_ARGS) $(CC_ARGS) -c -o $(OBJ_DIR)/metalerp_runtime.o metalerp/core/sources/initializations.c
-	$(CC) $(MACRO_DEF_ARGS) $(CC_ARGS) -c -o $(OBJ_DIR)/ext_init.o metalerp/core/sources/externals/externals_init.c
-	$(CUDACC) -shared -o $(LIB_DIR)/$(SHARED_LIB_OUT) $(OBJ_DIR)/metalerp_runtime.o $(OBJ_DIR)/metalerp_cuda_runtime.o $(OBJ_DIR)/ext_init.o $(LIB_LINK_ARGS)
-	$(BIN_STRIPPING_CALL) $(LIB_DIR)/$(SHARED_LIB_OUT)
-	$(EXTRA_SHARED_LIB_ROUTINES)
-	echo "build successfully produced $(LIB_DIR)/$(SHARED_LIB_OUT) library."
-	cp $(LIB_DIR)/$(SHARED_LIB_OUT) pymetalerp
-	pip install -e ./pymetalerp
 
 clean:
 	-rm -rf $(OBJ_DIR)
